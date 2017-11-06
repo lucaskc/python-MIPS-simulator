@@ -4,4 +4,4 @@ and $r0, $r6, $r2
 or $r2, $r6, $r5
 bne $r0, $r1, 100
 lw $r4, 4($r0)
-sw $r3, 8($r0)  
+sw $r3, 8($r0)
