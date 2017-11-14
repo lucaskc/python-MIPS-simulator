@@ -59,7 +59,7 @@ class InstructionParser(object):
     def __init__(self):
         self.instructionSet = {
             'rtype': ['add', 'sub', 'and', 'or'],
-            'itype': ['bne', 'lw', 'sw']
+            'itype': ['addi', 'subi', 'bne', 'lw', 'sw']
         }    
 
     def parseFile(self, filename):
