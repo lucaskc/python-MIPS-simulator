@@ -35,6 +35,10 @@ class PipelineSimulator(object):
         # and continuing to 0xffc
         self.instructionMemory = dict([(x*4, 0) for x in range(int(0xffc/4))])
 
+        # set up the data memory construct, a list index starting at 0
+        # and continuing to 0x4000
+        self.dataMemory = dict([(x*4, 0) for x in range(int(0x4000/4))])
+
         # programCounter to state where in the instruction collection
         # we are. to find correct spot in instruction memory add 0x100  
         self.programCounter = 0x1000
@@ -283,9 +287,9 @@ class DataStage(PipelineStage):
         """
  
         if self.instr.controls['writeMem']:
-            self.simulator.instructionMemory[self.instr.source2RegValue] = self.instr.source1RegValue
+            self.simulator.dataMemory[self.instr.source2RegValue] = self.instr.source1RegValue
         elif self.instr.controls['readMem']:
-            self.instr.result = self.simulator.instructionMemory[self.instr.source1RegValue]
+            self.instr.result = self.simulator.dataMemory[self.instr.source1RegValue]
     def __str__(self):
         return 'Main Memory'
     
