@@ -161,7 +161,7 @@ class FetchStage(PipelineStage):
         """
         if self.simulator.programCounter < (len(self.simulator.instrCollection) * 4 + 0x1000):
             self.simulator.instrCount += 1
-            self.instr = self.simulator.mainmemory[self.simulator.programCounter]
+            self.instr = self.simulator.instructionMemory[self.simulator.programCounter]
         else:
             self.instr = Nop
         self.simulator.programCounter += 4
@@ -283,9 +283,9 @@ class DataStage(PipelineStage):
         """
  
         if self.instr.writeMem:
-            self.simulator.mainmemory[self.instr.source2RegValue] = self.instr.source1RegValue
+            self.simulator.instructionMemory[self.instr.source2RegValue] = self.instr.source1RegValue
         elif self.instr.readMem:
-            self.instr.result = self.simulator.mainmemory[self.instr.source1RegValue]
+            self.instr.result = self.simulator.instructionMemory[self.instr.source1RegValue]
     def __str__(self):
         return 'Main Memory'
     
