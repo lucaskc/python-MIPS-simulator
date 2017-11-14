@@ -72,7 +72,7 @@ class PipelineSimulator(object):
                 pi.advance()
         #now that everything is done, remove the register from
         # the hazard list
-        if (self.pipeline[1].instr.regWrite) :
+        if (self.pipeline[1].instr.controls['regWrite']) :
             self.hazardList.pop(0)
         
         self.checkDone()
@@ -102,10 +102,10 @@ class PipelineSimulator(object):
         """
         if (self.pipeline[4] is not Nop 
                 and self.pipeline[4].instr.result is not None
-                and self.pipeline[4].instr.dest == regName) :
+                and self.pipeline[4].instr.values['dest'] == regName) :
                     return self.pipeline[4].instr.result
         elif (self.pipeline[1] is not Nop
-                and self.pipeline[1].instr.dest == regName ):
+                and self.pipeline[1].instr.values['dest'] == regName ):
                     return self.pipeline[1].instr.result
         else :#this value used to be False, but python treats False and 0 the same
             return "GAH" 
@@ -176,26 +176,26 @@ class ReadStage(PipelineStage):
         used in this instruction 
         """
         
-        if(self.instr.regRead):
-            self.instr.source1RegValue = self.simulator.registers[self.instr.s1]
-            if (self.instr.immed and
+        if(self.instr.controls['regRead']):
+            self.instr.source1RegValue = self.simulator.registers[self.instr.values['s1']]
+            if (self.instr.values['immed'] and
                 #these instructions require special treatment
-                 not( self.instr.op == 'bne' or self.instr.op == 'beq' 
-                     or self.instr.op =='lw' or self.instr.op =='sw')): 
+                 not( self.instr.values['op'] == 'bne' or self.instr.values['op'] == 'beq' 
+                     or self.instr.values['op'] =='lw' or self.instr.values['op'] =='sw')): 
                 #check to see if it is a hex value
-                if "0x" in self.instr.immed:
-                    self.instr.source2RegValue = int(self.instr.immed,16)
+                if "0x" in self.instr.values['immed']:
+                    self.instr.source2RegValue = int(self.instr.values['immed'],16)
                 else :
-                    self.instr.source2RegValue = int(self.instr.immed)
-            elif self.instr.s2:
-                self.instr.source2RegValue = self.simulator.registers[self.instr.s2]
+                    self.instr.source2RegValue = int(self.instr.values['immed'])
+            elif self.instr.values['s2']:
+                self.instr.source2RegValue = self.simulator.registers[self.instr.values['s2']]
                     
-        if self.instr.op == 'j':
+        if self.instr.values['op'] == 'j':
             # Set the program counter to the raw target address
-            if "0x" in self.instr.target:
-                    targetval = int(self.instr.target, 16)
+            if "0x" in self.instr.values['target']:
+                    targetval = int(self.instr.values['target'], 16)
             else :
-                    targetval = int(self.instr.target)
+                    targetval = int(self.instr.values['target'])
             self.simulator.programCounter = targetval
             # Set the other instructions currently in the pipeline to a Nop
             self.simulator.pipeline[0] = FetchStage(Nop, self)
@@ -210,19 +210,19 @@ class ExecStage(PipelineStage):
         """
         
         
-        if self.instr is not Nop and self.instr.aluop:
+        if self.instr is not Nop and self.instr.controls['aluop']:
             #if we have a hazard in either s1 or s2, 
             # grab the value from the other instructions
             # in the pipeline
-            if self.instr.s1 in self.simulator.hazardList :
-                forwardVal = self.simulator.getForwardVal(self.instr.s1)
+            if self.instr.values['s1'] in self.simulator.hazardList :
+                forwardVal = self.simulator.getForwardVal(self.instr.values['s1'])
                 if forwardVal != "GAH":
                     self.instr.source1RegValue = forwardVal
                 else :
                     self.simulator.stall = True
                     return
-            if self.instr.s2 in self.simulator.hazardList :
-                forwardVal = self.simulator.getForwardVal(self.instr.s2)
+            if self.instr.values['s2'] in self.simulator.hazardList :
+                forwardVal = self.simulator.getForwardVal(self.instr.values['s2'])
                 if forwardVal != "GAH" :
                     self.instr.source2RegValue = forwardVal
                 else :
@@ -230,46 +230,46 @@ class ExecStage(PipelineStage):
                     return
             
             #append the destination register to the hazard list 
-            if self.instr.regWrite :
-                self.simulator.hazardList.append(self.instr.dest)    
+            if self.instr.controls['regWrite'] :
+                self.simulator.hazardList.append(self.instr.values['dest'])    
 
             #calculate the offset of the lw and sw instructions
-            if  self.instr.op == 'lw':
-                self.instr.source1RegValue = self.instr.source1RegValue + int(self.instr.immed)
-            elif  self.instr.op == 'sw':
-                self.instr.source2RegValue = self.instr.source2RegValue + int(self.instr.immed)
-            elif self.instr.op == 'jr':
+            if  self.instr.values['op'] == 'lw':
+                self.instr.source1RegValue = self.instr.source1RegValue + int(self.instr.values['immed'])
+            elif  self.instr.values['op'] == 'sw':
+                self.instr.source2RegValue = self.instr.source2RegValue + int(self.instr.values['immed'])
+            elif self.instr.values['op'] == 'jr':
                 self.simulator.programCounter = self.instr.source1RegValue
                 # Set the other instructions currently in the pipeline to a Nop
                 self.simulator.pipeline[0] = FetchStage(Nop, self)
                 self.simulator.pipeline[2] = ReadStage(Nop, self)
-            elif self.instr.op == 'bne':
+            elif self.instr.values['op'] == 'bne':
                 if self.instr.source1RegValue != self.instr.source2RegValue:
                     # Set the program counter to the target address 
                     # subtract 8 to account for 2 instructions we have loaded into fetch and read
-                    self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.immed) * 4) - 8
+                    self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.values['immed']) * 4) - 8
                     # Set the other instructions currently in the pipeline to Nops
                     self.simulator.pipeline[0] = FetchStage(Nop, self)
                     self.simulator.pipeline[2] = ReadStage(Nop, self)
                     self.simulator.branched = True
-            elif self.instr.op == 'beq':
+            elif self.instr.values['op'] == 'beq':
                 if self.instr.source1RegValue == self.instr.source2RegValue:
                     # Set the program counter to the target address
-                    self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.immed) * 4) - 8
+                    self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.values['immed']) * 4) - 8
                     # Set the other instructions currently in the pipeline to Nops
                     self.simulator.pipeline[0] = FetchStage(Nop, self)
                     self.simulator.pipeline[2] = ReadStage(Nop, self)
                     self.simulator.branched = True
             else :         
-                if (self.instr.op == 'slt'):
+                if (self.instr.values['op'] == 'slt'):
                     val = 1 if self.instr.source1RegValue < self.instr.source2RegValue else 0
                     self.instr.result = val
-                elif (self.instr.op == 'nor'):
+                elif (self.instr.values['op'] == 'nor'):
                     self.instr.result = ~(self.instr.source1RegValue | self.instr.source2RegValue)
                 else:
                     self.instr.result = eval("%d %s %d" % 
                                                         (self.instr.source1RegValue,
-                                                        self.simulator.operations[self.instr.op],
+                                                        self.simulator.operations[self.instr.values['op']],
                                                         self.instr.source2RegValue))
                 
     def __str__(self):
@@ -282,9 +282,9 @@ class DataStage(PipelineStage):
         and then read from main memory second
         """
  
-        if self.instr.writeMem:
+        if self.instr.controls['writeMem']:
             self.simulator.instructionMemory[self.instr.source2RegValue] = self.instr.source1RegValue
-        elif self.instr.readMem:
+        elif self.instr.controls['readMem']:
             self.instr.result = self.simulator.instructionMemory[self.instr.source1RegValue]
     def __str__(self):
         return 'Main Memory'
@@ -294,13 +294,13 @@ class WriteStage(PipelineStage):
         """
         Write to the register file
         """
-        if self.instr.regWrite:
-            if self.instr.dest == '$r0':
+        if self.instr.controls['regWrite']:
+            if self.instr.values['dest'] == '$r0':
                 #Edit: don't raise exception just ignore it
                 #raise Exception('Cannot assign to register $r0')    
                 pass
-            elif self.instr.dest:
-                self.simulator.registers[self.instr.dest] = self.instr.result
+            elif self.instr.values['dest']:
+                self.simulator.registers[self.instr.values['dest']] = self.instr.result
                 
     def __str__(self):
         return 'Write to Register'
