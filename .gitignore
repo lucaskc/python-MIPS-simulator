@@ -2,3 +2,5 @@
 *.sln
 .vs/
 .vscode/
+debug.txt
+__pycache__/*
