@@ -31,12 +31,12 @@ class PipelineSimulator(object):
         # ex: {'$r0' : 0, '$r1' : 0 ... '$r31' : 0 }
         self.registers = dict([("$r%s" % x, 0) for x in range(32)]) 
         
-        # set up the main memory construct, a list index starting at 0
+        # set up the instruction memory construct, a list index starting at 0
         # and continuing to 0xffc
-        self.mainmemory = dict([(x*4, 0) for x in range(int(0xffc/4))])
+        self.instructionMemory = dict([(x*4, 0) for x in range(int(0xffc/4))])
 
         # programCounter to state where in the instruction collection
-        # we are. to find correct spot in mainmemory add 0x100  
+        # we are. to find correct spot in instruction memory add 0x100  
         self.programCounter = 0x1000
 
         # the list of instruction objects passed into the simulator,
@@ -47,7 +47,7 @@ class PipelineSimulator(object):
         # starting at 0x100
         y=0
         for instr in self.instrCollection:
-           self.mainmemory[0x1000 + y] = instr
+           self.instructionMemory[0x1000 + y] = instr
            y += 4
     
     def step(self):
@@ -139,7 +139,7 @@ class PipelineSimulator(object):
                 
     def printStageCollection(self):
         print ("<Instruction Collection>")
-        for index, item in sorted(list(self.mainmemory.items())):
+        for index, item in sorted(list(self.instructionMemory.items())):
             if item != 0:
                 print (index, ": ", str(item))
 
