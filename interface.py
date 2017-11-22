@@ -5,10 +5,28 @@ root = Tk()
 height = 32
 width = 5
 
+entry_Str = [[]]
 
 #Defining my methods before the elements need them
 def nextClock():
-    print("Here will be the code changing the registers")
+    entry_Str[2][0].set("OLA MUNDO") #[row starting in 1][column starting in 0]
+    #IMPLEMENTAR AQUI O CÓDIGO PARA SAIR O FINAL
+
+#Create a 5x5 excel-like table
+for i in range(height): #Rows
+    listVar = []
+    
+    for j in range(1, width + 1): #Columns
+        var = StringVar()
+        listVar.append(var);
+        Entry(root, textvariable=var).grid(row=i, column=j)
+
+    entry_Str.append(listVar)
+
+
+#Adding button
+button = Button(root, text="Clock it!", command=nextClock)
+button.grid(row=33, column=5)
 
 #Naming the labels -> I know it's an ugly code, but wich one has a different name!
 lbl = Label(root, text="$r0: ")
@@ -106,15 +124,5 @@ lbl.grid(row=30, column=0)
 
 lbl = Label(root, text="$r9: ")
 lbl.grid(row=31, column=0)
-
-
-#Create a 5x5 excel-like table
-for i in range(height): #Rows
-    for j in range(1, width + 1): #Columns
-        b = Entry(root, text="")
-        b.grid(row=i, column=j)
-
-button = Button(root, text="Clock it!", command=nextClock)
-button.grid(row=33, column=5)
 
 mainloop()
