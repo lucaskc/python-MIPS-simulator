@@ -35,6 +35,30 @@ lbl.grid(row=0, column=0)
 lbl = Label(root, text="$r1: ")
 lbl.grid(row=1, column=0)
 
+lbl = Label(root, text="$r2: ")
+lbl.grid(row=12, column=0)
+
+lbl = Label(root, text="$r3: ")
+lbl.grid(row=23, column=0)
+
+lbl = Label(root, text="$r4: ")
+lbl.grid(row=26, column=0)
+
+lbl = Label(root, text="$r5: ")
+lbl.grid(row=27, column=0)
+
+lbl = Label(root, text="$r6: ")
+lbl.grid(row=28, column=0)
+
+lbl = Label(root, text="$r7: ")
+lbl.grid(row=29, column=0)
+
+lbl = Label(root, text="$r8: ")
+lbl.grid(row=30, column=0)
+
+lbl = Label(root, text="$r9: ")
+lbl.grid(row=31, column=0)
+
 lbl = Label(root, text="$r10: ")
 lbl.grid(row=2, column=0)
 
@@ -64,9 +88,6 @@ lbl.grid(row=10, column=0)
 
 lbl = Label(root, text="$r19: ")
 lbl.grid(row=11, column=0)
-
-lbl = Label(root, text="$r2: ")
-lbl.grid(row=12, column=0)
 
 lbl = Label(root, text="$r20: ")
 lbl.grid(row=13, column=0)
@@ -98,31 +119,10 @@ lbl.grid(row=21, column=0)
 lbl = Label(root, text="$r29: ")
 lbl.grid(row=22, column=0)
 
-lbl = Label(root, text="$r3: ")
-lbl.grid(row=23, column=0)
-
 lbl = Label(root, text="$r30: ")
 lbl.grid(row=24, column=0)
 
 lbl = Label(root, text="$r31: ")
 lbl.grid(row=25, column=0)
-
-lbl = Label(root, text="$r4: ")
-lbl.grid(row=26, column=0)
-
-lbl = Label(root, text="$r5: ")
-lbl.grid(row=27, column=0)
-
-lbl = Label(root, text="$r6: ")
-lbl.grid(row=28, column=0)
-
-lbl = Label(root, text="$r7: ")
-lbl.grid(row=29, column=0)
-
-lbl = Label(root, text="$r8: ")
-lbl.grid(row=30, column=0)
-
-lbl = Label(root, text="$r9: ")
-lbl.grid(row=31, column=0)
 
 mainloop()
