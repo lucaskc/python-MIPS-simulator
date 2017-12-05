@@ -22,11 +22,14 @@ class PipelineSimulator(object):
         #   4 = Data Access
         self.pipeline = [None for x in range(0,5)]
 
-        self.pipeline[0] = FetchStage(Nop, self)
-        self.pipeline[1] = WriteStage(Nop, self)
-        self.pipeline[2] = ReadStage(Nop, self)
-        self.pipeline[3] = ExecStage(Nop, self)
-        self.pipeline[4] = DataStage(Nop, self)
+        self.pipeline[0] = FetchStage(Nop, None, self)
+        self.pipeline[1] = WriteStage(Nop, None, self)
+        self.pipeline[2] = ReadStage(Nop, None, self)
+        self.pipeline[3] = ExecStage(Nop, None, self)
+        self.pipeline[4] = DataStage(Nop, None, self)
+
+        # array of DebugINfo objects, will store all the information of the simulation
+        self.simulationInfo = []
         
         # ex: {'$r0' : 0, '$r1' : 0 ... '$r31' : 0 }
         self.registers = dict([("$r%s" % x, 0) for x in range(32)]) 
@@ -56,29 +59,58 @@ class PipelineSimulator(object):
     
     def step(self):
         self.cycles +=1
+        cycleInfo = DebugInfo(self.cycles)
         #shift the instructions to the next logical place
         #technically we do the Fetch instruction here, which is why 
         #FetchStage.advance() does nothing
-        
+
         #MUST KEEP THIS ORDER
-        self.pipeline[1] = WriteStage(self.pipeline[4].instr,self)
+        self.pipeline[1] = WriteStage(self.pipeline[4].instr, self.pipeline[4], self)
         if self.stall :
-            self.pipeline[4] = DataStage(Nop,self)
+            self.pipeline[4] = DataStage(Nop, None, self)
             self.stall = False
         else :
-            self.pipeline[4] = DataStage(self.pipeline[3].instr,self)
-            self.pipeline[3] = ExecStage(self.pipeline[2].instr,self)
-            self.pipeline[2] = ReadStage(self.pipeline[0].instr,self)
-            self.pipeline[0] = FetchStage(None, self)
+            self.pipeline[4] = DataStage(self.pipeline[3].instr, self.pipeline[3], self)
+            self.pipeline[3] = ExecStage(self.pipeline[2].instr, self.pipeline[2], self)
+            self.pipeline[2] = ReadStage(self.pipeline[0].instr, self.pipeline[0], self)
+            self.pipeline[0] = FetchStage(None, None, self)
          
         #call advance on each instruction in the pipeline
         for pi in self.pipeline:
                 pi.advance()
+
+        if (self.pipeline[0] is not None):
+            cycleInfo.pipelineRegs['IF/ID']['IR'] = self.pipeline[0].ir[:] if self.pipeline[0].ir else "Nop"
+            cycleInfo.pipelineRegs['IF/ID']['PC'] = self.pipeline[0].pc
+
+        if (self.pipeline[2] is not None):
+            cycleInfo.pipelineRegs['ID/EX']['IR'] = self.pipeline[2].ir[:] if self.pipeline[2].ir else "Nop"
+            cycleInfo.pipelineRegs['ID/EX']['PC'] = self.pipeline[2].pc
+            cycleInfo.pipelineRegs['ID/EX']['A'] = self.pipeline[2].a
+            cycleInfo.pipelineRegs['ID/EX']['B'] = self.pipeline[2].b
+            cycleInfo.pipelineRegs['ID/EX']['IMM'] = self.pipeline[2].imm
+
+        if (self.pipeline[3] is not None):
+            cycleInfo.pipelineRegs['EX/MEM']['IR'] = self.pipeline[3].ir[:] if self.pipeline[3].ir else "Nop"
+            cycleInfo.pipelineRegs['EX/MEM']['COND'] = self.pipeline[3].cond
+            cycleInfo.pipelineRegs['EX/MEM']['ALUOUT'] = self.pipeline[3].aluout
+            cycleInfo.pipelineRegs['EX/MEM']['B'] = self.pipeline[3].b
+
+        if (self.pipeline[4] is not None):
+            cycleInfo.pipelineRegs['MEM/WB']['IR'] = self.pipeline[4].ir[:] if self.pipeline[4].ir else "Nop"
+            cycleInfo.pipelineRegs['MEM/WB']['LMD'] = self.pipeline[4].lmd
+            cycleInfo.pipelineRegs['MEM/WB']['ALUOUT'] = self.pipeline[4].aluout
+
+        for key, value in self.registers.items():
+            cycleInfo.mainRegs[key] = self.registers[key]
+
         #now that everything is done, remove the register from
         # the hazard list
         if (self.pipeline[1].instr.controls['regWrite']) :
             self.hazardList.pop(0)
         
+        self.simulationInfo.append(cycleInfo)
+
         self.checkDone()
 
         #if we stalled our branched we didn't want to load a new
@@ -99,6 +131,7 @@ class PipelineSimulator(object):
         while not self.__done:
             self.step()
             self.debug()
+        return self.simulationInfo
     
     def getForwardVal(self, regName):
         """ Forward the proper value based on the given register name
@@ -148,9 +181,18 @@ class PipelineSimulator(object):
                 print (index, ": ", str(item))
 
 class PipelineStage(object):
-    def __init__(self, instruction, simulator):
+    def __init__(self, instruction, stage, simulator):
         self.instr = instruction
+        self.previousStage = stage
         self.simulator = simulator
+        self.ir = None
+        self.pc = 0
+        self.a = 0
+        self.b = 0
+        self.imm = 0
+        self.aluout = 0
+        self.cond = False
+        self.lmd = 0
         
     def advance(self):
         pass
@@ -169,6 +211,9 @@ class FetchStage(PipelineStage):
         else:
             self.instr = Nop
         self.simulator.programCounter += 4
+
+        self.ir = str(self.instr)[:]
+        self.pc = self.simulator.programCounter
          
     def __str__(self):
         return 'Fetch Stage\t'
@@ -179,9 +224,13 @@ class ReadStage(PipelineStage):
         Read the necessary registers from the registers file
         used in this instruction 
         """
-        
+        immed = 0
+        areg = 0
+        breg = 0
         if(self.instr.controls['regRead']):
             self.instr.source1RegValue = self.simulator.registers[self.instr.values['s1']]
+            areg = self.instr.source1RegValue
+
             if (self.instr.values['immed'] and
                 #these instructions require special treatment
                  not( self.instr.values['op'] == 'bne' or self.instr.values['op'] == 'beq' 
@@ -191,8 +240,11 @@ class ReadStage(PipelineStage):
                     self.instr.source2RegValue = int(self.instr.values['immed'],16)
                 else :
                     self.instr.source2RegValue = int(self.instr.values['immed'])
+                immed = self.instr.source2RegValue
+                
             elif self.instr.values['s2']:
                 self.instr.source2RegValue = self.simulator.registers[self.instr.values['s2']]
+                breg = self.instr.source2RegValue
                     
         if self.instr.values['op'] == 'j':
             # Set the program counter to the raw target address
@@ -203,6 +255,14 @@ class ReadStage(PipelineStage):
             self.simulator.programCounter = targetval
             # Set the other instructions currently in the pipeline to a Nop
             self.simulator.pipeline[0] = FetchStage(Nop, self)
+
+        if (self.previousStage is not None):
+            self.ir = str(self.previousStage.ir)[:]
+            self.pc = self.previousStage.pc
+            self.imm = immed
+            self.a = areg
+            self.b = breg
+
     def __str__(self):
         return 'Read from Register'
     
@@ -213,7 +273,7 @@ class ExecStage(PipelineStage):
         assembly operation to Python operation
         """
         
-        
+        ALUResult = 0
         if self.instr is not Nop and self.instr.controls['aluop']:
             #if we have a hazard in either s1 or s2, 
             # grab the value from the other instructions
@@ -240,8 +300,11 @@ class ExecStage(PipelineStage):
             #calculate the offset of the lw and sw instructions
             if  self.instr.values['op'] == 'lw':
                 self.instr.source1RegValue = self.instr.source1RegValue + int(self.instr.values['immed'])
+                ALUResult = self.instr.source1RegValue
             elif  self.instr.values['op'] == 'sw':
                 self.instr.source2RegValue = self.instr.source2RegValue + int(self.instr.values['immed'])
+                ALUResult = self.instr.source2RegValue
+
             elif self.instr.values['op'] == 'jr':
                 self.simulator.programCounter = self.instr.source1RegValue
                 # Set the other instructions currently in the pipeline to a Nop
@@ -252,17 +315,19 @@ class ExecStage(PipelineStage):
                     # Set the program counter to the target address 
                     # subtract 8 to account for 2 instructions we have loaded into fetch and read
                     self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.values['immed']) * 4) - 8
+                    ALUResult = self.simulator.programCounter
                     # Set the other instructions currently in the pipeline to Nops
-                    self.simulator.pipeline[0] = FetchStage(Nop, self)
-                    self.simulator.pipeline[2] = ReadStage(Nop, self)
+                    self.simulator.pipeline[0] = FetchStage(Nop, None, self)
+                    self.simulator.pipeline[2] = ReadStage(Nop, None, self)
                     self.simulator.branched = True
             elif self.instr.values['op'] == 'beq':
                 if self.instr.source1RegValue == self.instr.source2RegValue:
                     # Set the program counter to the target address
                     self.simulator.programCounter = self.simulator.programCounter + (int(self.instr.values['immed']) * 4) - 8
+                    ALUResult = self.simulator.programCounter
                     # Set the other instructions currently in the pipeline to Nops
-                    self.simulator.pipeline[0] = FetchStage(Nop, self)
-                    self.simulator.pipeline[2] = ReadStage(Nop, self)
+                    self.simulator.pipeline[0] = FetchStage(Nop, None, self)
+                    self.simulator.pipeline[2] = ReadStage(Nop, None, self)
                     self.simulator.branched = True
             else :         
                 if (self.instr.values['op'] == 'slt'):
@@ -275,6 +340,13 @@ class ExecStage(PipelineStage):
                                                         (self.instr.source1RegValue,
                                                         self.simulator.operations[self.instr.values['op']],
                                                         self.instr.source2RegValue))
+                ALUResult = self.instr.result
+
+        if (self.previousStage is not None):
+            self.ir = str(self.previousStage.ir)[:]
+            self.aluout = ALUResult
+            self.cond = self.simulator.branched
+            self.b = self.previousStage.b
                 
     def __str__(self):
         return 'Execute Stage\t'
@@ -290,6 +362,12 @@ class DataStage(PipelineStage):
             self.simulator.dataMemory[self.instr.source2RegValue] = self.instr.source1RegValue
         elif self.instr.controls['readMem']:
             self.instr.result = self.simulator.dataMemory[self.instr.source1RegValue]
+
+        if (self.previousStage is not None):
+            self.ir = str(self.previousStage.ir)[:]
+            self.aluout = self.previousStage.aluout
+            self.lmd = self.instr.result
+
     def __str__(self):
         return 'Main Memory'
     
@@ -308,3 +386,32 @@ class WriteStage(PipelineStage):
                 
     def __str__(self):
         return 'Write to Register'
+
+class DebugInfo:
+    def __init__(self, cycle):
+        self.cycle = cycle
+        
+        self.mainRegs = {}
+
+        self.pipelineRegs = {}
+        self.pipelineRegs['IF/ID'] = {}
+        self.pipelineRegs['IF/ID']['IR'] = ''
+        self.pipelineRegs['IF/ID']['PC'] = 0
+
+        self.pipelineRegs['ID/EX'] = {}
+        self.pipelineRegs['ID/EX']['A'] = 0
+        self.pipelineRegs['ID/EX']['B'] = 0
+        self.pipelineRegs['ID/EX']['PC'] = 0
+        self.pipelineRegs['ID/EX']['IR'] = ''
+        self.pipelineRegs['ID/EX']['IMM'] = 0
+
+        self.pipelineRegs['EX/MEM'] = {}
+        self.pipelineRegs['EX/MEM']['IR'] = ''
+        self.pipelineRegs['EX/MEM']['ALUOUT'] = 0
+        self.pipelineRegs['EX/MEM']['COND'] = False
+        self.pipelineRegs['EX/MEM']['B'] = 0
+
+        self.pipelineRegs['MEM/WB'] = {}
+        self.pipelineRegs['MEM/WB']['IR'] = ''
+        self.pipelineRegs['MEM/WB']['ALUOUT'] = 0
+        self.pipelineRegs['MEM/WB']['LMD'] = 0
