@@ -130,7 +130,7 @@ class PipelineSimulator(object):
         """ Run the simulator, call step until we are done """
         while not self.__done:
             self.step()
-            self.debug()
+            #self.debug()
         return self.simulationInfo
     
     def getForwardVal(self, regName):
