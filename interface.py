@@ -20,7 +20,7 @@ f = open(filename, 'w')
 sys.stdout = f
 simulationInfo = pipelinesim.run()
 
-mainRegs = [None] * 32
+mainRegs = [None] * 46
 
 #Create a 5x5 excel-like table
 for i in range(0,height): #Rows
@@ -52,16 +52,32 @@ def setValues():
     for index in range(0, 32):
         mainRegs[index] = simulationInfo[clockNumber].mainRegs["$r" + str(index)]
 
+    mainRegs[32] = simulationInfo[clockNumber].pipelineRegs['IF/ID']['IR']
+    mainRegs[33] = simulationInfo[clockNumber].pipelineRegs['IF/ID']['PC']
+    mainRegs[34] = simulationInfo[clockNumber].pipelineRegs['ID/EX']['IR']
+    mainRegs[35] = simulationInfo[clockNumber].pipelineRegs['ID/EX']['PC']
+    mainRegs[36] = simulationInfo[clockNumber].pipelineRegs['ID/EX']['A']
+    mainRegs[37] = simulationInfo[clockNumber].pipelineRegs['ID/EX']['B']
+    mainRegs[38] = simulationInfo[clockNumber].pipelineRegs['ID/EX']['IMM']
+    mainRegs[39] = simulationInfo[clockNumber].pipelineRegs['EX/MEM']['IR']
+    mainRegs[40] = simulationInfo[clockNumber].pipelineRegs['EX/MEM']['B']
+    mainRegs[41] = simulationInfo[clockNumber].pipelineRegs['EX/MEM']['COND']
+    mainRegs[42] = simulationInfo[clockNumber].pipelineRegs['EX/MEM']['ALUOUT']
+    mainRegs[43] = simulationInfo[clockNumber].pipelineRegs['MEM/WB']['IR']
+    mainRegs[44] = simulationInfo[clockNumber].pipelineRegs['MEM/WB']['ALUOUT']
+    mainRegs[45] = simulationInfo[clockNumber].pipelineRegs['MEM/WB']['LMD']
+
 def nextClock():
+    global clockNumber, mainRegs    
+
+    if clockNumber >= len(simulationInfo):
+        return
+
     forwardResults()
     setValues()
 
-    global clockNumber, mainRegs
-
-    for i in range(1, 33):
+    for i in range(1, 47):
         entry_Str[i][0].set(mainRegs[i - 1])
-    
-    #entry_Str[1][8].set("Test")
 
     clockNumber += 1
 
